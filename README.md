@@ -19,6 +19,11 @@ Install
 These instructions are tested on Trixbox CE
 
 
+Download
+```
+wget -O okautoconf-1.0.0.tar.gz https://github.com/opinkerfi/okautoconf/tarball/1.0.0
+```
+
 Create configuration dir, example
 ```
 mkdir /etc/okautoconf
