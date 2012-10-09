@@ -1,5 +1,8 @@
 okautoconf for Asterisk
 =======================
+What is it used for? It's used for calling emergency teams where you need to contact
+everyone really quickly.
+
 This package manages asterisk callout groups, basic flow:
 
  * User calls for example extension 2010
@@ -32,12 +35,12 @@ chown asterisk:asterisk /etc/okautoconf
 
 Copy AGI script to the correct dir, example
 ```
-cp agi-bin/okautoconf.pl /var/lib/asterisk/agi-bin/
+install -m 755 agi-bin/okautoconf.pl /var/lib/asterisk/agi-bin/okautoconf.pl
 ```
 
 Copy the CGI script to apache cgi-bin, example
 ```
-cp cgi-bin/okautoconf.cgi /var/www/cgi-bin/
+install -m 755 cgi-bin/okautoconf.cgi /var/www/cgi-bin/okautoconf.cgi
 ```
 
 Copy CSS for the CGI script to html directory
