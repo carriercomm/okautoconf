@@ -7,6 +7,10 @@ This package manages asterisk callout groups, basic flow:
  * Asterisk joins all members into a conference
 
 It also contains a CGI script to manage the extensions via web.
+![okautoconf List](http://opinkerfi.github.com/okautoconf/okautoconf-list.png)
+
+![okautoconf Edit](http://opinkerfi.github.com/okautoconf/okautoconf-edit.png)
+
 
 Install
 -------
