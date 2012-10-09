@@ -1,6 +1,6 @@
-okautoconf
-==========
-This package manages callout groups, basic flow:
+okautoconf for Asterisk
+=======================
+This package manages asterisk callout groups, basic flow:
 
  * User calls for example extension 2010
  * Asterisk calls all users defined by this extension
