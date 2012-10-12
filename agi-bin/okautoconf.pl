@@ -40,6 +40,8 @@ print "SET VARIABLE CONFERENCEID \"$ext\"\n";
 # Drop a call file into place
 foreach my $number (@include) {
 	open NMEGA, ">/var/spool/asterisk/tmp/okautoconf-$number";
+	print NMEGA "Callerid: $callerid\n" if ($callerid);
+	
 	print NMEGA <<"	EOMEGA";
 Channel: $int/$number
 MaxRetries: 0

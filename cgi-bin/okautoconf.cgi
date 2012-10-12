@@ -15,25 +15,39 @@ output_buffer = ''
 def main():
     form = cgi.FieldStorage()
 
+    # Check sanity (config dir, ...)
     check_setup()
 
+    # Someone hit Add Extension
     if form.has_key('add'):
         html_header('add')
-
+        # Submit
         if form.has_key('number'):
-            ext_add(form['number'].value, form['name'].value)
+            ext_add(form['number'].value, name=form['name'].value, callerid=(form.has_key('callerid') and form['callerid'].value or ''))
             html_ext_edit(form['number'].value)
+        # Show extension add form
         else:
             html_ext_add()
-
         html_footer()
     elif form.has_key('edit'):
         if form.has_key('eadd'):
-            ext_add(form['edit'].value, member=form['eadd'].value)
+            members = ([form['eadd'].value] or None)
+            if members is not None:
+                ext_add(form['edit'].value, members=members)
+        callerid = form.has_key('callerid') and form['callerid'].value or ""
+        name = form.has_key('name') and form['name'].value or None
+        if name or callerid:
+                ext_edit(form['edit'].value, name=name, callerid=callerid)
         elif form.has_key('edel'):
-            ext_del(form['edit'].value, form['edel'].value)
+            ext_del_number(form['edit'].value, form['edel'].value)
         html_header('edit')
         html_ext_edit(form['edit'].value)
+        html_footer()
+    elif form.has_key('del'):
+        ext_del(form['del'].value)
+        html_header('list')
+        extensions = ext_get()
+        html_ext_list(extensions)
         html_footer()
     else:
         html_header('list')
@@ -59,15 +73,16 @@ chown %s /etc/okautoconf
 </pre>
 """ % (mylogin, mylogin))
 
-def ext_add(number, name=None, member=None):
+def ext_add(number, name=None, members=None, callerid=""):
     global extension_dir
 
     fh = open("%s/%s" % (extension_dir, number), 'a')
 
     if name is not None:
-        fh.write("%s\n" % (name))
-    if member is not None:
-        fh.write("%s\n" % (member))
+        fh.write("%s|%s\n" % (name, callerid))
+    if members is not None:
+        for member in members:
+            fh.write("%s\n" % (member))
 
     return True
 
@@ -75,20 +90,27 @@ def ext_add(number, name=None, member=None):
 def html_ext_edit(number, header=0):
     global output_buffer
     e = ext_get(number)
+
+    if e['callerid'] is None:
+        e['callerid'] = ''
     
     output_buffer += """
 <div class="extension_edit">
 <h4>Edit Extension %s - %s</h4>
+<form action="?" method=POST>
 """ % (number, e['name'])
-    if len(e['numbers']):
+    if len(e['members']):
         output_buffer += """
+  <span class="formtitle">Name</span> <input type="text" name="name" value="%s" /><br/>
+  <span class="formtitle">CallerID</span> <input type="text" name="callerid" value="%s" /><br/>
+  <small>Which phone number the outbound calls come from</small>
   <table>
     <tr>
       <th>Number</th>
       <th></th>
     </tr>
-"""
-        for n in sorted(e['numbers']):
+""" % (e['name'], e['callerid'])
+        for n in sorted(e['members']):
             output_buffer += """
     <tr>
       <td>%s</td>
@@ -102,15 +124,14 @@ def html_ext_edit(number, header=0):
         output_buffer += "No numbers, add one<br/>"
     output_buffer += """
 <br/>
-<form method=POST>
 <input type="hidden" name="edit" value="%s" />
 Number <input type="text" name="eadd" />
-<input type="submit" value="Add" />
+<input type="submit" value="Save" />
 </form>
 </div>
 """ % (number)
 
-def ext_del(number, delete):
+def ext_del_number(number, delete):
     global extension_dir
     edir = open("%s/%s" % (extension_dir, number), 'r')
 
@@ -123,6 +144,20 @@ def ext_del(number, delete):
         if l.strip() != delete:
             edir.write(l)
     return True
+
+def ext_del(number):
+    global extension_dir
+
+    return os.rename("%s/%s" % (extension_dir, number), "%s/%s.old" % (extension_dir, number))
+    
+def ext_edit(number, name=None, callerid=None):
+    if name is None and callerid is None:
+        raise Exception("ext_edit for %s with no changes to name or callerid" % (number))
+
+    ext = ext_get(number)
+    ext_del(number)
+
+    ext_add(number, (name or ext['name']), ext['members'], (callerid or ext['members']))
     
 
     
@@ -142,10 +177,16 @@ def ext_get(number=None):
     except Exception, e:
         html_error('Unable to open %s/%s: %s' % (extension_dir, number, e))
 
-    name = edir.readline()
-    numbers = [x.replace("\n", "") for x in edir.readlines()]
+    cfg = edir.readline().rstrip('\n').split('|')
+    ext = {}
+    ext['number'] = number
+    ext['name'] = cfg[0]
+    # callerid is optional
+    ext['callerid'] = (len(cfg) == 2 and cfg[1] or None)
+    # chop off newlines and return array of numbers
+    ext['members'] = [x.replace("\n", "") for x in edir.readlines()]
 
-    return { 'number': number, 'name': name, 'numbers': numbers }
+    return ext
 
 def html_ext_add():
     global output_buffer
@@ -156,6 +197,7 @@ def html_ext_add():
 <input type="hidden" name="add" value="1" />
 <span class="formtitle">Number</span> <input type="text" name="number" /><br/>
 <span class="formtitle">Name</span> <input type="text" name="name" /><br/>
+<span class="formtitle">CallerID</span> <input type="text" name="callerid" /> Optional<br/>
 <input type="submit" value="Save" />
 </form>
 </div>
@@ -182,9 +224,9 @@ def html_ext_list(exts):
   <tr>
     <td><a href="?edit=%s">%s</a></td>
     <td><a href="?edit=%s">%s</a></td>
-    <td><a href="?edit=%s">Edit</a></td>
+    <td><a href="?edit=%s">Edit</a> <a href="?del=%s">Del</a></td>
   </tr>
-""" % (e['number'], e['number'], e['number'], e['name'], e['number'])
+""" % (e['number'], e['number'], e['number'], e['name'], e['number'], e['number'])
 
         output_buffer += """
 </table>
@@ -234,4 +276,4 @@ if __name__ == "__main__":
     main()
 
 
-# vim: ts=4 sts=4 expandtab
+# vim: ts=4 sts=4 expandtab shiftwidth=4 smarttab autoindent
